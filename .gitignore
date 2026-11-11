@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.angular/
+.env
+.env.*
+!.env.example
+public/config.json
+coverage/
+test-results/
+playwright-report/
+out-tsc/
+supabase/.temp/
+npm-audit.json

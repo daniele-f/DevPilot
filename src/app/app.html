@@ -1,0 +1,483 @@
+@if (!auth) {
+<main class="setup">
+  <div class="brand"><span class="brand-mark">➤</span>DevPilot</div>
+  <h1>Connect your workspace.</h1>
+  <p>Configure Supabase to start tracking your projects.</p>
+  <ol>
+    <li>Copy <code>.env.example</code> to <code>.env</code>.</li>
+    <li>Set your Supabase URL and publishable key.</li>
+    <li>Apply the migration in <code>supabase/migrations</code>.</li>
+    <li>Restart with <code>npm start</code>.</li>
+  </ol>
+  <p>See the repository README for the complete setup.</p>
+</main>
+} @else if (!auth.ready()) {
+<main class="loading-screen" role="status">
+  <span class="brand-mark">➤</span>
+  <p>Opening your workspace…</p>
+</main>
+} @else if (!auth.user() || auth.recovery()) {
+<dp-auth />
+} @else {
+<div class="app-shell">
+  @if(mobileNav()){<button
+    class="nav-backdrop"
+    aria-label="Close navigation"
+    (click)="mobileNav.set(false)"
+  ></button
+  >}
+  <aside
+    id="project-navigation"
+    class="sidebar"
+    [class.open]="mobileNav()"
+    [cdkTrapFocus]="mobileNav()"
+  >
+    <div class="brand">
+      <span class="brand-mark">➤</span>DevPilot<span class="version">v0.1</span
+      ><button
+        class="icon-button mobile-only"
+        aria-label="Close navigation"
+        (click)="mobileNav.set(false)"
+      >
+        <dp-icon name="close" />
+      </button>
+    </div>
+    <div class="workspace-label">
+      <span class="workspace-avatar"
+        >{{(auth.user()?.email || 'D').slice(0,1).toUpperCase()}}</span
+      >
+      <div>
+        <strong>Personal workspace</strong
+        ><span>Let's move things forward.</span>
+      </div>
+    </div>
+    <div class="sidebar-section-heading">
+      <span>PROJECTS</span
+      ><button
+        class="icon-button"
+        aria-label="Create project"
+        (click)="showProjectForm('create')"
+        [disabled]="store.busy()"
+      >
+        <dp-icon name="plus" />
+      </button>
+    </div>
+    <nav class="project-nav" aria-label="Projects">
+      @for(p of store.projects();track p.id){<button
+        [class.selected]="p.id===store.projectId()"
+        (click)="selectProject(p.id)"
+        [disabled]="store.busy()"
+      >
+        <dp-icon name="folder" /><span>{{p.name}}</span
+        >@if(p.id===store.projectId()){<span class="project-active-dot"></span
+        >}</button
+      >}@empty{
+      <p class="sidebar-empty">Your next project starts here.</p>
+      }
+    </nav>
+    <button
+      class="new-project text-button"
+      (click)="showProjectForm('create')"
+      [disabled]="store.busy()"
+    >
+      <dp-icon name="plus" /> New project
+    </button>
+    <div class="sidebar-bottom">
+      <div class="workspace-note">
+        <span class="tiny-label">A PLACE TO MAKE PROGRESS</span>
+        <p>Big ideas.<br />Small, steady steps.</p>
+        <span class="note-line"></span>
+      </div>
+      <button
+        class="sidebar-utility"
+        (click)="theme.set(theme()==='dark'?'light':'dark')"
+      >
+        <dp-icon
+          [name]="theme()==='dark'?'sun':'moon'"
+        />{{theme()==='dark'?'Light':'Dark'}} theme
+      </button>
+      <div class="account">
+        <span class="user-avatar"
+          >{{(auth.user()?.email || 'D').slice(0,1).toUpperCase()}}</span
+        ><span [title]="auth.user()?.email">{{auth.user()?.email}}</span
+        ><button
+          class="icon-button"
+          aria-label="Sign out"
+          (click)="signOut()"
+          [disabled]="store.busy()"
+        >
+          <dp-icon name="logout" />
+        </button>
+      </div>
+    </div>
+  </aside>
+  <main class="workspace">
+    <header class="topbar">
+      <div class="breadcrumbs">
+        <button
+          class="icon-button mobile-only"
+          aria-label="Open navigation"
+          (click)="mobileNav.set(true)"
+        >
+          <dp-icon name="menu" /></button
+        ><span class="desktop-only">Workspace</span
+        ><span class="breadcrumb-slash desktop-only">/</span
+        ><dp-icon name="folder" /><strong
+          >{{store.project()?.name || 'Projects'}}</strong
+        >
+      </div>
+      <span class="private-label"><i></i> Private workspace</span>
+    </header>
+    <div class="workspace-content">
+      @if(error() && !projectForm()){
+      <div class="error-banner" role="alert">
+        <span>{{error()}}</span
+        ><button
+          class="icon-button"
+          aria-label="Dismiss error"
+          (click)="error.set('')"
+        >
+          <dp-icon name="close" />
+        </button>
+      </div>
+      } @if(store.error()){
+      <div class="error-banner" role="alert">
+        <span>{{store.error()}}</span
+        ><button class="secondary" (click)="store.load(auth.user()!.id)">
+          Retry
+        </button>
+      </div>
+      } @if(store.project();as project){
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">PROJECT WORKSPACE</div>
+          <h1>{{project.name}}<span class="project-badge">PROJECT</span></h1>
+          <p>From first thought to shipped. One step at a time.</p>
+        </div>
+        <div class="heading-actions">
+          <button
+            class="icon-button"
+            aria-label="Rename project"
+            title="Rename project"
+            (click)="showProjectForm('rename')"
+            [disabled]="store.busy()"
+          >
+            <dp-icon name="settings" /></button
+          ><button
+            class="icon-button danger-hover"
+            aria-label="Delete project"
+            title="Delete project"
+            (click)="showProjectForm('delete')"
+            [disabled]="store.busy()"
+          >
+            <dp-icon name="close" /></button
+          ><button
+            class="primary"
+            (click)="openItem()"
+            [disabled]="store.busy() || store.loading()"
+          >
+            <dp-icon name="plus" /> New item
+          </button>
+        </div>
+      </div>
+      <div class="project-summary">
+        <span
+          ><i class="status-dot green"></i>{{active().length}} active
+          items</span
+        ><span class="summary-divider"></span><span>{{done()}} completed</span>
+        <div
+          class="progress-track"
+          role="progressbar"
+          [attr.aria-valuenow]="progress()"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-label="Project completion"
+        >
+          <span [style.width.%]="progress()"></span>
+        </div>
+        <span class="progress-value">{{progress()}}%</span>
+      </div>
+      <div class="view-toolbar">
+        <div class="view-tabs" role="group" aria-label="View">
+          <button
+            [class.active]="view()==='board' && !archived()"
+            (click)="view.set('board');archived.set(false)"
+          >
+            <dp-icon name="board" /> Board</button
+          ><button
+            [class.active]="view()==='list' && !archived()"
+            (click)="view.set('list');archived.set(false)"
+          >
+            <dp-icon name="list" /> List</button
+          ><button [class.active]="archived()" (click)="archived.set(true)">
+            <dp-icon name="archive" /> Archive
+          </button>
+        </div>
+        <label class="search-box"
+          ><dp-icon name="search" /><input
+            type="search"
+            aria-label="Search items"
+            placeholder="Search items…"
+            [ngModel]="search()"
+            (ngModelChange)="search.set($event)"
+        /></label>
+      </div>
+      @if(store.loading()){
+      <div class="board-loading" role="status">
+        <span class="spinner"></span>Loading your items…
+      </div>
+      } @else if(view()==='board' && !archived()){
+      <div class="board" cdkDropListGroup>
+        @for(status of statuses;track status.id){
+        <section class="board-column" [style.--column-color]="status.color">
+          <header>
+            <h2>
+              <i class="status-dot" [style.background]="status.color"></i
+              >{{status.label}}<span class="count"
+                >{{column(status.id).length}}</span
+              >
+            </h2>
+            <button
+              class="icon-button"
+              [attr.aria-label]="'Add item to '+status.label"
+              (click)="openItem(null,status.id)"
+              [disabled]="store.busy()"
+            >
+              <dp-icon name="plus" />
+            </button>
+          </header>
+          <div
+            class="column-items"
+            cdkDropList
+            [cdkDropListData]="status.id"
+            [cdkDropListSortingDisabled]="true"
+            (cdkDropListDropped)="drop($event)"
+          >
+            @for(item of column(status.id);track item.id){
+            <article
+              class="item-card"
+              cdkDrag
+              [cdkDragData]="item"
+              [cdkDragDisabled]="store.busy()"
+              [cdkDragStartDelay]="{touch:250,mouse:0}"
+            >
+              <button
+                class="card-open"
+                (click)="openItem(item)"
+                [attr.aria-label]="'Open '+item.title"
+              >
+                <div class="card-meta">
+                  <span class="type-label" [attr.data-type]="item.type"
+                    ><span
+                      >{{item.type==='bug'?'⊗':item.type==='idea'?'✧':item.type==='feature'?'◇':'□'}}</span
+                    >{{item.type}}</span
+                  ><span class="item-code"
+                    >{{item.id.slice(0,5).toUpperCase()}}</span
+                  >
+                </div>
+                <h3>{{item.title}}</h3>
+                @if(item.description){
+                <p>{{item.description}}</p>
+                }
+                <footer>
+                  <span class="priority" [attr.data-priority]="item.priority"
+                    ><span class="priority-bars"><i></i><i></i><i></i></span
+                    >{{item.priority | titlecase}}</span
+                  ><span class="card-date"
+                    >{{item.created_at | date:'MMM d'}}</span
+                  >
+                </footer></button
+              ><span class="drag-handle" cdkDragHandle title="Drag to move"
+                ><dp-icon name="grip"
+              /></span>
+              <div class="card-placeholder" *cdkDragPlaceholder></div>
+            </article>
+            } @if(column(status.id).length===0){
+            <div class="empty-column">
+              <span
+                >{{status.id==='ideas'?'✧':status.id==='done'?'✓':'+'}}</span
+              >
+              <p>
+                {{search()?'No matching items':status.id==='ideas'?'Make room
+                for an idea':status.id==='done'?'Good things are on the
+                way':'Nothing here yet'}}
+              </p>
+            </div>
+            }
+          </div>
+          <button
+            class="add-column-item"
+            (click)="openItem(null,status.id)"
+            [disabled]="store.busy()"
+          >
+            <dp-icon name="plus" /> Add item
+          </button>
+        </section>
+        }
+      </div>
+      <div class="board-footnote">
+        <span
+          ><dp-icon name="grip" />Drag cards between columns, or change status
+          in item details.</span
+        ><span>{{filtered().length}} items</span>
+      </div>
+      }@else{
+      <div class="list-view">
+        <div class="list-header">
+          <span>{{archived()?'ARCHIVED ITEMS':'ITEM'}}</span><span>STATUS</span
+          ><span>PRIORITY</span><span>CREATED</span>
+        </div>
+        @for(item of filtered();track item.id){
+        <div class="list-row">
+          <button (click)="openItem(item)" class="list-title">
+            <span class="type-symbol" [attr.data-type]="item.type"
+              >{{item.type==='bug'?'⊗':item.type==='idea'?'✧':item.type==='feature'?'◇':'□'}}</span
+            ><span
+              ><strong>{{item.title}}</strong
+              ><small>{{item.type | titlecase}}</small></span
+            ></button
+          ><label class="status-select"
+            ><span class="sr-only">Status for {{item.title}}</span
+            ><i
+              class="status-dot"
+              [style.background]="statusColor(item.status)"
+            ></i
+            ><select
+              [value]="item.status"
+              (change)="changeListStatus(item,$event)"
+              [disabled]="store.busy()"
+            >
+              @for(s of statuses;track s.id){
+              <option [value]="s.id" [selected]="s.id === item.status">
+                {{s.label}}
+              </option>
+              }
+            </select></label
+          ><span
+            class="priority list-priority"
+            [attr.data-priority]="item.priority"
+            >{{item.priority | titlecase}}</span
+          ><span class="list-date">{{item.created_at | date:'MMM d, y'}}</span>
+        </div>
+        }@empty{
+        <div class="empty-list">
+          <dp-icon [name]="archived()?'archive':'list'" />
+          <h2>
+            {{search()?'No matching items':archived()?'A clean archive.':'Every
+            project starts with an idea.'}}
+          </h2>
+          <p>
+            {{archived()?'Archived items appear here. Open one to restore
+            it.':search()?'Try a different search.':'Add your first item to get
+            things moving.'}}
+          </p>
+          @if(!archived()&&!search()){<button
+            class="primary"
+            (click)="openItem()"
+          >
+            <dp-icon name="plus" /> Add your first item</button
+          >}
+        </div>
+        }
+      </div>
+      } }@else if(!store.loading()){
+      <div class="welcome-empty">
+        <span class="welcome-graphic"><dp-icon name="folder" /><i>✧</i></span
+        ><span class="eyebrow">A FRESH START</span>
+        <h1>Something great starts here.</h1>
+        <p>
+          Create a project, capture an idea, and turn<br class="desktop-only" />
+          your next small step into progress.
+        </p>
+        <button class="primary" (click)="showProjectForm('create')">
+          <dp-icon name="plus" /> Create your first project</button
+        ><span class="welcome-hint"
+          >Just a name is enough. You can figure out the rest as you go.</span
+        >
+      </div>
+      }
+    </div>
+  </main>
+</div>
+@if(panel();as current){<dp-item-panel
+  [item]="current.item"
+  [initialStatus]="current.status"
+  [busy]="store.busy()"
+  [error]="panelError()"
+  (closed)="panel.set(null)"
+  (saved)="saveItem($event)"
+  (archived)="archiveItem()"
+/>} @if(projectForm();as mode){
+<div class="modal-backdrop">
+  <section
+    class="project-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="project-dialog-title"
+    cdkTrapFocus
+    [cdkTrapFocusAutoCapture]="true"
+    (keydown.escape)="!store.busy() && projectForm.set(null)"
+  >
+    <header>
+      <span class="modal-icon"><dp-icon name="folder" /></span
+      ><button
+        class="icon-button"
+        aria-label="Close project dialog"
+        (click)="projectForm.set(null)"
+        [disabled]="store.busy()"
+      >
+        <dp-icon name="close" />
+      </button>
+    </header>
+    <h2 id="project-dialog-title">
+      {{mode==='create'?'A new place to build.':mode==='rename'?'Rename
+      project':'Delete this project?'}}
+    </h2>
+    <p>
+      {{mode==='delete'?'This permanently deletes the project, all its items,
+      and all notes. This cannot be undone.':'Give your project a name. Keep it
+      simple.'}}
+    </p>
+    <form (ngSubmit)="saveProject()">
+      @if(mode==='delete'){<label
+        >Type “{{store.project()?.name}}” to confirm<input
+          name="confirm"
+          [(ngModel)]="deleteName"
+          required
+          autocomplete="off"
+          [disabled]="store.busy()"
+          cdkFocusInitial /></label
+      >}@else{<label
+        >Project name<input
+          name="name"
+          [(ngModel)]="projectName"
+          maxlength="80"
+          required
+          placeholder="e.g. My next big thing"
+          [disabled]="store.busy()"
+          cdkFocusInitial /></label
+      >}@if(error()){
+      <p class="error" role="alert">{{error()}}</p>
+      }
+      <footer>
+        <button
+          type="button"
+          class="secondary"
+          (click)="projectForm.set(null)"
+          [disabled]="store.busy()"
+        >
+          Cancel</button
+        ><button
+          [class]="mode==='delete'?'danger':'primary'"
+          [disabled]="store.busy() || (mode==='delete' ? deleteName!==store.project()?.name : !projectName.trim())"
+        >
+          {{store.busy()?'Saving…':mode==='delete'?'Delete
+          project':mode==='create'?'Create project':'Save name'}}
+        </button>
+      </footer>
+    </form>
+  </section>
+</div>
+} @if(toast()){
+<div class="toast" role="status"><dp-icon name="check" />{{toast()}}</div>
+} }
