@@ -11,3 +11,5 @@ playwright-report/
 out-tsc/
 supabase/.temp/
 npm-audit.json
+.generated/
+.local/

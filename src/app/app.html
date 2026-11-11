@@ -126,7 +126,10 @@
           >{{store.project()?.name || 'Projects'}}</strong
         >
       </div>
-      <span class="private-label"><i></i> Private workspace</span>
+      <span class="private-label"
+        ><i></i> {{auth.local ? 'Local development' : 'Private
+        workspace'}}</span
+      >
     </header>
     <div class="workspace-content">
       @if(error() && !projectForm()){

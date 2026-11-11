@@ -1,7 +1,23 @@
-import { InjectionToken, signal } from "@angular/core";
+import { InjectionToken, Signal, signal } from "@angular/core";
 import { SupabaseClient, User } from "@supabase/supabase-js";
-export const AUTH = new InjectionToken<Auth>("Supabase auth");
-export class Auth {
+export interface Account {
+  id: string;
+  email?: string;
+}
+export interface AccountAuth {
+  readonly local: boolean;
+  readonly user: Signal<Account | null>;
+  readonly ready: Signal<boolean>;
+  readonly recovery: Signal<boolean>;
+  signIn(email: string, password: string): Promise<void>;
+  signUp(email: string, password: string): Promise<boolean>;
+  signOut(): Promise<void>;
+  resetPassword(email: string): Promise<void>;
+  updatePassword(password: string): Promise<void>;
+}
+export const AUTH = new InjectionToken<AccountAuth>("DevPilot auth");
+export class Auth implements AccountAuth {
+  readonly local = false;
   readonly user = signal<User | null>(null);
   readonly ready = signal(false);
   readonly recovery = signal(false);
@@ -33,6 +49,8 @@ export class Auth {
     if (error) throw error;
   }
   async signUp(email: string, password: string): Promise<boolean> {
+    if (password.length < 8)
+      throw new Error("Use a password of at least 8 characters.");
     const { data, error } = await this.client.auth.signUp({
       email,
       password,

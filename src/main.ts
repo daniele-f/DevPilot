@@ -1,31 +1,12 @@
 import { provideZonelessChangeDetection } from "@angular/core";
 import { bootstrapApplication } from "@angular/platform-browser";
-import { createClient } from "@supabase/supabase-js";
 import { App } from "./app/app";
-import { AUTH, Auth } from "./app/core/auth";
-import { REPOSITORY, SupabaseRepository } from "./app/core/repository";
+import { createProviders } from "./app/core/providers";
 
 async function main(): Promise<void> {
-  const response = await fetch("/config.json", { cache: "no-store" });
-  if (!response.ok)
-    throw new Error("Unable to load application configuration.");
-  const config = (await response.json()) as {
-    supabaseUrl: string;
-    supabaseKey: string;
-  };
-  const client =
-    config.supabaseUrl && config.supabaseKey
-      ? createClient(config.supabaseUrl, config.supabaseKey)
-      : null;
+  const providers = await createProviders();
   await bootstrapApplication(App, {
-    providers: [
-      provideZonelessChangeDetection(),
-      { provide: AUTH, useValue: client ? new Auth(client) : null },
-      {
-        provide: REPOSITORY,
-        useValue: client ? new SupabaseRepository(client) : null,
-      },
-    ],
+    providers: [provideZonelessChangeDetection(), ...providers],
   });
 }
 main().catch(() => {

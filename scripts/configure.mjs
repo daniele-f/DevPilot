@@ -16,9 +16,9 @@ if (
     "Only a Supabase publishable or anon key may be included in the browser.",
   );
 }
-await mkdir("public", { recursive: true });
+await mkdir(".generated/production", { recursive: true });
 await writeFile(
-  "public/config.json",
+  ".generated/production/config.json",
   JSON.stringify({ supabaseUrl, supabaseKey }),
 );
 if (!supabaseUrl || !supabaseKey)

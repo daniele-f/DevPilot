@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "node scripts/configure.mjs && ng serve --host 127.0.0.1",
-    "build": "node scripts/configure.mjs && ng build",
+    "start": "node scripts/start-dev.mjs",
+    "build": "node scripts/configure.mjs && ng build && node scripts/verify-production.mjs",
     "test": "ng test --watch=false",
-    "test:db": "node scripts/test-database.mjs"
+    "test:db": "node scripts/test-database.mjs",
+    "test:local": "node --test dev-server/server.test.mjs"
   },
   "dependencies": {
     "@angular/cdk": "21.2.14",

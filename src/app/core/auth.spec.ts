@@ -39,6 +39,13 @@ describe("email authentication lifecycle", () => {
     ).toBe(false);
     expect(auth.user()).toBeNull();
   });
+  it("continues to reject short passwords for new accounts", async () => {
+    const { auth, api } = setup();
+    await expect(auth.signUp("someone@example.com", "dev")).rejects.toThrow(
+      "8 characters",
+    );
+    expect(api.signUp).not.toHaveBeenCalled();
+  });
   it("removes user state on sign out event", async () => {
     const { auth, event } = setup();
     await Promise.resolve();

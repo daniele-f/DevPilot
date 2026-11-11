@@ -23,6 +23,20 @@
           },
           "configurations": {
             "production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/app/core/providers.ts",
+                  "with": "src/app/core/providers.production.ts"
+                }
+              ],
+              "assets": [
+                { "glob": "**/*", "input": "public" },
+                {
+                  "glob": "config.json",
+                  "input": ".generated/production",
+                  "output": "/"
+                }
+              ],
               "outputHashing": "all",
               "budgets": [
                 {
@@ -43,7 +57,10 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "configurations": {
-            "development": { "buildTarget": "devpilot:build:development" },
+            "development": {
+              "buildTarget": "devpilot:build:development",
+              "proxyConfig": "proxy.conf.json"
+            },
             "production": { "buildTarget": "devpilot:build:production" }
           },
           "defaultConfiguration": "development"

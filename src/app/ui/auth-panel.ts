@@ -42,7 +42,11 @@ import { Icon } from "./icon";
         <footer>A little structure. A lot of possibility.</footer>
       </section>
       <section class="auth-form-wrap">
-        <form class="auth-form" (ngSubmit)="submit()">
+        <form
+          class="auth-form"
+          #authForm="ngForm"
+          (ngSubmit)="authForm.valid && submit()"
+        >
           <span class="eyebrow">YOUR DEVELOPMENT WORKSPACE</span>
           <h2>
             {{
@@ -66,13 +70,14 @@ import { Icon } from "./icon";
           </p>
           @if (!auth.recovery()) {
             <label
-              >Email<input
-                type="email"
+              >{{ auth.local ? "Username" : "Email"
+              }}<input
+                [type]="auth.local ? 'text' : 'email'"
                 name="email"
-                autocomplete="email"
+                [autocomplete]="auth.local ? 'username' : 'email'"
                 [(ngModel)]="email"
                 required
-                placeholder="you@example.com"
+                [placeholder]="auth.local ? 'dev' : 'you@example.com'"
                 [disabled]="busy()"
             /></label>
           }
@@ -112,7 +117,7 @@ import { Icon } from "./icon";
                       : "Sign in"
             }}<dp-icon name="arrow" />
           </button>
-          @if (!auth.recovery()) {
+          @if (!auth.recovery() && !auth.local) {
             <div class="auth-links">
               <button
                 type="button"
@@ -136,7 +141,11 @@ import { Icon } from "./icon";
             </div>
           }
           <p class="auth-footnote">
-            Your projects are private to your account.
+            {{
+              auth.local
+                ? "Local development · data stays on this computer."
+                : "Your projects are private to your account."
+            }}
           </p>
         </form>
       </section>
