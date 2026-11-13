@@ -14,7 +14,7 @@ if not exist "node_modules\.bin\ng.cmd" (
     if errorlevel 1 goto failed
 )
 
-echo Starting DevPilot at http://localhost:4200
+echo Starting DevPilot. The launcher will print the browser URL below.
 echo Local development login: dev / dev
 echo Keep this window open. Press Ctrl+C to stop the development server.
 echo.

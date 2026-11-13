@@ -1,14 +1,20 @@
 import { signal } from "@angular/core";
 import { Account, AccountAuth } from "./auth";
 import { Repository } from "./repository";
+import { NoteEvent } from "./note-events";
 import {
   Item,
+  Activity,
   ItemDraft,
   Note,
   Project,
   validateItem,
   validateName,
 } from "./models";
+
+export class LocalApiError extends Error {
+  constructor(readonly status: number, message: string) { super(message); }
+}
 
 export class LocalApi {
   constructor(
@@ -24,7 +30,7 @@ export class LocalApi {
     });
     const data = await response.json();
     if (!response.ok)
-      throw new Error(data.message ?? "Local database request failed.");
+      throw new LocalApiError(response.status, data.message ?? "Local database request failed.");
     return data as T;
   }
 }
@@ -42,10 +48,11 @@ export class LocalAuth implements AccountAuth {
       .catch(() => this.user.set(null))
       .finally(() => this.ready.set(true));
   }
-  async signIn(username: string, password: string): Promise<void> {
+  async signIn(username: string, password: string, remember = false): Promise<void> {
     const user = await this.api.call<Account>("/auth/login", "POST", {
       username: username.trim(),
       password,
+      remember,
     });
     this.user.set(user);
   }
@@ -66,6 +73,35 @@ export class LocalAuth implements AccountAuth {
 
 export class LocalRepository implements Repository {
   constructor(private readonly api: LocalApi) {}
+  watchWorkspace(_userId: string, changed: () => void, connected: (ready: boolean) => void, noteChanged?: (event: NoteEvent) => void): () => void {
+    const stream = new EventSource("/api/events");
+    stream.addEventListener("ready", () => connected(true));
+    stream.addEventListener("change", changed);
+    stream.addEventListener("resync", () => { connected(false); connected(true); });
+    stream.addEventListener("note", event => {
+      try {
+        const note = JSON.parse((event as MessageEvent).data) as NoteEvent;
+        if (noteChanged) noteChanged(note); else changed();
+      } catch { connected(false); connected(true); }
+    });
+    stream.onerror = () => connected(false);
+    return () => stream.close();
+  }
+  watchItems(projectId: string, changed: () => void, connected: (ready: boolean) => void): () => void {
+    const stream = new EventSource(`/api/projects/${encodeURIComponent(projectId)}/events`);
+    stream.addEventListener("ready", () => { connected(true); changed(); });
+    stream.addEventListener("change", changed);
+    stream.addEventListener("note", changed);
+    stream.addEventListener("resync", changed);
+    stream.onerror = () => connected(false);
+    return () => stream.close();
+  }
+  editNote(id: string, body: string): Promise<Note> {
+    return this.api.call(`/notes/${encodeURIComponent(id)}`, "PATCH", { body: validateName(body, 10000) });
+  }
+  deleteNote(id: string): Promise<void> {
+    return this.api.call(`/notes/${encodeURIComponent(id)}`, "DELETE");
+  }
   projects(): Promise<Project[]> {
     return this.api.call("/projects");
   }
@@ -97,6 +133,12 @@ export class LocalRepository implements Repository {
   }
   notes(itemId: string): Promise<Note[]> {
     return this.api.call(`/items/${encodeURIComponent(itemId)}/notes`);
+  }
+  activity(itemId: string): Promise<Activity[]> {
+    return this.api.call(`/items/${encodeURIComponent(itemId)}/activity`);
+  }
+  deleteActivity(itemId: string, id: string): Promise<void> {
+    return this.api.call(`/items/${encodeURIComponent(itemId)}/activity/${encodeURIComponent(id)}`, "DELETE");
   }
   addNote(itemId: string, body: string): Promise<Note> {
     return this.api.call(`/items/${encodeURIComponent(itemId)}/notes`, "POST", {

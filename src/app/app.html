@@ -19,7 +19,7 @@
 } @else if (!auth.user() || auth.recovery()) {
 <dp-auth />
 } @else {
-<div class="app-shell">
+<div class="app-shell" [class.sidebar-collapsed]="sidebarCollapsed()">
   @if(mobileNav()){<button
     class="nav-backdrop"
     aria-label="Close navigation"
@@ -33,8 +33,16 @@
     [cdkTrapFocus]="mobileNav()"
   >
     <div class="brand">
-      <span class="brand-mark">➤</span>DevPilot<span class="version">v0.1</span
-      ><button
+      <span class="brand-mark">➤</span><span class="brand-name">DevPilot</span>
+      <button
+        class="icon-button sidebar-toggle desktop-only"
+        [attr.aria-label]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+        [title]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+        [attr.aria-expanded]="!sidebarCollapsed()"
+        aria-controls="project-navigation"
+        (click)="sidebarCollapsed.set(!sidebarCollapsed())"
+      ><dp-icon [name]="sidebarCollapsed() ? 'sidebar-expand' : 'sidebar-collapse'" /></button>
+      <button
         class="icon-button mobile-only"
         aria-label="Close navigation"
         (click)="mobileNav.set(false)"
@@ -52,10 +60,11 @@
       </div>
     </div>
     <div class="sidebar-section-heading">
-      <span>PROJECTS</span
+      <span class="projects-label">PROJECTS</span
       ><button
         class="icon-button"
         aria-label="Create project"
+        title="Create project"
         (click)="showProjectForm('create')"
         [disabled]="store.busy()"
       >
@@ -65,10 +74,14 @@
     <nav class="project-nav" aria-label="Projects">
       @for(p of store.projects();track p.id){<button
         [class.selected]="p.id===store.projectId()"
+        [attr.aria-label]="p.name"
+        [attr.aria-current]="p.id===store.projectId() ? 'page' : null"
+        [title]="p.name"
         (click)="selectProject(p.id)"
         [disabled]="store.busy()"
       >
-        <dp-icon name="folder" /><span>{{p.name}}</span
+        <span class="project-folder"><dp-icon name="folder" /></span><span class="project-name">{{p.name}}</span>
+        <span class="project-shortname" aria-hidden="true">{{p.name.slice(0,2).toUpperCase()}}</span
         >@if(p.id===store.projectId()){<span class="project-active-dot"></span
         >}</button
       >}@empty{
@@ -90,11 +103,13 @@
       </div>
       <button
         class="sidebar-utility"
+        [attr.aria-label]="theme()==='dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+        [title]="theme()==='dark' ? 'Switch to light theme' : 'Switch to dark theme'"
         (click)="theme.set(theme()==='dark'?'light':'dark')"
       >
         <dp-icon
           [name]="theme()==='dark'?'sun':'moon'"
-        />{{theme()==='dark'?'Light':'Dark'}} theme
+        /><span>{{theme()==='dark'?'Light':'Dark'}} theme</span>
       </button>
       <div class="account">
         <span class="user-avatar"
@@ -103,6 +118,7 @@
         ><button
           class="icon-button"
           aria-label="Sign out"
+          title="Sign out"
           (click)="signOut()"
           [disabled]="store.busy()"
         >
@@ -158,6 +174,13 @@
           <p>From first thought to shipped. One step at a time.</p>
         </div>
         <div class="heading-actions">
+          @if(auth.local){<button
+            class="secondary"
+            (click)="connectionProject.set(project)"
+            [disabled]="store.busy()"
+          >
+            <dp-icon name="link" /> Connect AI</button
+          >}
           <button
             class="icon-button"
             aria-label="Rename project"
@@ -220,10 +243,19 @@
           ><dp-icon name="search" /><input
             type="search"
             aria-label="Search items"
-            placeholder="Search items…"
+            placeholder="Search items by title, description or ID…"
             [ngModel]="search()"
             (ngModelChange)="search.set($event)"
         /></label>
+        <button
+          class="icon-button"
+          aria-label="Refresh items"
+          title="Refresh items changed by AI"
+          (click)="store.refreshItems()"
+          [disabled]="store.busy() || store.loading()"
+        >
+          <dp-icon name="refresh" />
+        </button>
       </div>
       @if(store.loading()){
       <div class="board-loading" role="status">
@@ -259,6 +291,8 @@
             @for(item of column(status.id);track item.id){
             <article
               class="item-card"
+              [class.codex-card-working]="codexWorking(item.id)"
+              [class.codex-card-waiting]="codexWaiting(item.id)"
               cdkDrag
               [cdkDragData]="item"
               [cdkDragDisabled]="store.busy()"
@@ -275,13 +309,19 @@
                       >{{item.type==='bug'?'⊗':item.type==='idea'?'✧':item.type==='feature'?'◇':'□'}}</span
                     >{{item.type}}</span
                   ><span class="item-code"
-                    >{{item.id.slice(0,5).toUpperCase()}}</span
+                    >DP #{{item.card_number}}</span
                   >
                 </div>
                 <h3>{{item.title}}</h3>
+                @if (codexWorking(item.id)) {
+                  <span class="codex-work-indicator"><span class="codex-work-spinner" aria-hidden="true"></span>Codex working</span>
+                } @else if (codexWaiting(item.id)) {
+                  <span class="codex-work-indicator codex-work-waiting">Needs your attention</span>
+                }
                 @if(item.description){
                 <p>{{item.description}}</p>
                 }
+                <dp-workflow-summary [item]="item" />
                 <footer>
                   <span class="priority" [attr.data-priority]="item.priority"
                     ><span class="priority-bars"><i></i><i></i><i></i></span
@@ -331,13 +371,15 @@
           ><span>PRIORITY</span><span>CREATED</span>
         </div>
         @for(item of filtered();track item.id){
-        <div class="list-row">
+        <div class="list-row" [class.codex-card-working]="codexWorking(item.id)" [class.codex-card-waiting]="codexWaiting(item.id)">
           <button (click)="openItem(item)" class="list-title">
             <span class="type-symbol" [attr.data-type]="item.type"
               >{{item.type==='bug'?'⊗':item.type==='idea'?'✧':item.type==='feature'?'◇':'□'}}</span
             ><span
-              ><strong>{{item.title}}</strong
-              ><small>{{item.type | titlecase}}</small></span
+              ><strong>{{item.title}}</strong>
+              @if (codexWorking(item.id)) { <span class="codex-work-indicator"><span class="codex-work-spinner" aria-hidden="true"></span>Codex working</span> }
+              @else if (codexWaiting(item.id)) { <span class="codex-work-indicator codex-work-waiting">Needs your attention</span> }
+              <small>{{item.type | titlecase}} @if(item.card_number){<span class="item-code"> · DP #{{item.card_number}}</span>}</small><dp-workflow-summary [item]="item" /></span
             ></button
           ><label class="status-select"
             ><span class="sr-only">Status for {{item.title}}</span
@@ -402,12 +444,21 @@
     </div>
   </main>
 </div>
-@if(panel();as current){<dp-item-panel
-  [item]="current.item"
+@if(liveConnectionProject();as connectedProject){<dp-connections
+  [project]="connectedProject"
+  [refreshVersion]="store.refreshVersion()"
+  (closed)="connectionProject.set(null)"
+/>} @if(panel();as current){<dp-item-panel
+  [item]="openPanelItem()"
+  [removed]="openPanelRemoved()"
+  [refreshVersion]="store.noteSyncVersion()"
+  [noteEvents]="store.noteEvents()"
   [initialStatus]="current.status"
   [busy]="store.busy()"
   [error]="panelError()"
   (closed)="panel.set(null)"
+  [persist]="persistCard"
+  [attentionRequest]="attentionRequest()"
   (saved)="saveItem($event)"
   (archived)="archiveItem()"
 />} @if(projectForm();as mode){
@@ -481,6 +532,20 @@
     </form>
   </section>
 </div>
-} @if(toast()){
+}
+@if (codexSyncError()) {
+  <div class="codex-attention-toast" role="alert">{{codexSyncError()}}</div>
+}
+@if (codexAttention().length && !codexSyncError()) {
+  <section class="codex-attention-toast" aria-label="Stories needing your attention" role="status">
+    @for (run of codexAttention(); track run.item.id) {
+      <div class="codex-attention-row">
+        <span><strong>DP #{{run.item.card_number}}</strong> · {{run.item.title}}<br />{{run.approval ? 'Codex needs your approval' : 'Codex needs your input'}}</span>
+        <button type="button" class="primary" (click)="openCodexAttention(run)" [disabled]="attentionOpening() || store.busy()">Go to card</button>
+      </div>
+    }
+  </section>
+}
+@if(toast()){
 <div class="toast" role="status"><dp-icon name="check" />{{toast()}}</div>
 } }

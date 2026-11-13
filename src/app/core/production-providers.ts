@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { AUTH, Auth } from "./auth";
+import { createAuthStorage } from "./auth-storage";
 import { REPOSITORY, SupabaseRepository } from "./repository";
 export async function productionProviders() {
   const response = await fetch("/config.json", { cache: "no-store" });
@@ -8,12 +9,15 @@ export async function productionProviders() {
     supabaseUrl: string;
     supabaseKey: string;
   };
+  const storage = config.supabaseUrl && config.supabaseKey ? createAuthStorage() : undefined;
   const client =
-    config.supabaseUrl && config.supabaseKey
-      ? createClient(config.supabaseUrl, config.supabaseKey)
+    storage
+      ? createClient(config.supabaseUrl, config.supabaseKey, {
+          auth: { storage, persistSession: true },
+        })
       : null;
   return [
-    { provide: AUTH, useValue: client ? new Auth(client) : null },
+    { provide: AUTH, useValue: client ? new Auth(client, storage) : null },
     {
       provide: REPOSITORY,
       useValue: client ? new SupabaseRepository(client) : null,

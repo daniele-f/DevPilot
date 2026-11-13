@@ -77,7 +77,7 @@ import { Icon } from "./icon";
                 [autocomplete]="auth.local ? 'username' : 'email'"
                 [(ngModel)]="email"
                 required
-                [placeholder]="auth.local ? 'dev' : 'you@example.com'"
+                [placeholder]="auth.local ? 'Username' : 'Email address'"
                 [disabled]="busy()"
             /></label>
           }
@@ -94,9 +94,20 @@ import { Icon } from "./icon";
                 [(ngModel)]="password"
                 required
                 [minlength]="mode() === 'signup' || auth.recovery() ? 8 : 1"
-                placeholder="Your password"
+                placeholder="Password"
                 [disabled]="busy()"
             /></label>
+          }
+          @if (mode() === "signin" && !auth.recovery()) {
+            <label class="remember-login">
+              <input
+                type="checkbox"
+                name="remember"
+                [(ngModel)]="remember"
+                [disabled]="busy()"
+              />
+              Remember me
+            </label>
           }
           @if (error()) {
             <p class="error" role="alert">{{ error() }}</p>
@@ -160,6 +171,7 @@ export class AuthPanel {
   readonly notice = signal("");
   email = "";
   password = "";
+  remember = false;
   switchMode(mode: "signin" | "signup" | "reset"): void {
     this.mode.set(mode);
     this.error.set("");
@@ -182,7 +194,7 @@ export class AuthPanel {
       } else if (this.mode() === "reset") {
         await this.auth.resetPassword(this.email.trim());
         this.notice.set("If an account exists, you’ll receive a reset link.");
-      } else await this.auth.signIn(this.email.trim(), this.password);
+      } else await this.auth.signIn(this.email.trim(), this.password, this.remember);
       this.password = "";
     } catch (error) {
       this.error.set(message(error));

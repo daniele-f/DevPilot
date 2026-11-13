@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { validateItem, validateName, visibleItems } from "./models";
+import { STATUSES, validateItem, validateName, visibleItems } from "./models";
 
 describe("backlog rules", () => {
+  it("labels the review lane and validates handoff and checklist fields", () => {
+    expect(STATUSES.map(s => s.label)).toEqual(["Ideas", "To Do", "In Progress", "Ready for Review", "Done"]);
+    const draft = { title: "Handoff", description: "", type: "feature", priority: "medium", status: "testing", next_actor: "user", next_action: "Try it", acceptance_criteria: [{ text: "Mobile works", completed: false }] } as const;
+    expect(() => validateItem({ ...draft, acceptance_criteria: [{ text: "   ", completed: false }] })).toThrow();
+    expect(() => validateItem({ ...draft, next_actor: "robot" as never, acceptance_criteria: [] })).toThrow();
+    expect(validateItem({ ...draft, acceptance_criteria: [] }).next_actor).toBe("user");
+  });
   it("normalizes titles and rejects blank or oversized titles", () => {
     expect(validateName("  Ship it  ", 200)).toBe("Ship it");
     expect(() => validateName("   ", 200)).toThrow("required");

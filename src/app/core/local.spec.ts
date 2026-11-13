@@ -48,7 +48,9 @@ describe("local SQLite client", () => {
     const auth = new LocalAuth(api);
     await new Promise((resolve) => setTimeout(resolve, 0));
     await auth.signIn("dev", "dev");
-    expect(JSON.parse(loginBody)).toEqual({ username: "dev", password: "dev" });
+    expect(JSON.parse(loginBody)).toEqual({ username: "dev", password: "dev", remember: false });
+    await auth.signIn("dev", "dev", true);
+    expect(JSON.parse(loginBody)).toEqual({ username: "dev", password: "dev", remember: true });
     expect(auth.user()?.id).toBe("local-dev");
   });
   it("propagates database failures instead of presenting an unsaved project", async () => {

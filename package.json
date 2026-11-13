@@ -7,7 +7,7 @@
     "build": "node scripts/configure.mjs && ng build && node scripts/verify-production.mjs",
     "test": "ng test --watch=false",
     "test:db": "node scripts/test-database.mjs",
-    "test:local": "node --test dev-server/server.test.mjs"
+    "test:local": "node --test dev-server/*.test.mjs"
   },
   "dependencies": {
     "@angular/cdk": "21.2.14",
@@ -25,9 +25,12 @@
     "@angular/cli": "21.2.29",
     "@angular/compiler-cli": "21.2.26",
     "@electric-sql/pglite": "0.3.14",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@types/node": "24.10.1",
+    "express": "5.3.0",
     "jsdom": "27.4.0",
     "typescript": "5.9.3",
-    "vitest": "4.1.12"
+    "vitest": "4.1.12",
+    "zod": "4.6.7"
   }
 }

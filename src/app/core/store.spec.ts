@@ -40,6 +40,8 @@ function repository(): Repository {
       return items[0];
     },
     notes: async () => [],
+    editNote: async () => { throw new Error("Not used"); },
+    deleteNote: async () => {},
     addNote: async (item_id, body) => ({
       id: "n1",
       item_id,
@@ -49,6 +51,67 @@ function repository(): Repository {
   };
 }
 describe("workspace persistence flow", () => {
+  it("defers a push refresh during a save and preserves errors on background failure", async () => {
+    const repo = repository();
+    const store = new WorkspaceStore(repo);
+    await store.load("u1");
+    let finish!: (item: Item) => void;
+    repo.saveItem = () => new Promise(resolve => { finish = resolve; });
+    repo.items = async () => [idea, { ...idea, id: "external", title: "External create" }];
+    const save = store.saveItem(idea);
+    await store.refreshItems(true);
+    finish(idea);
+    await save;
+    await Promise.resolve();
+    expect(store.items()).toHaveLength(2);
+    store.error.set("Existing actionable error");
+    repo.items = async () => { throw new Error("Offline"); };
+    await store.refreshItems(true);
+    expect(store.items()).toHaveLength(2);
+    expect(store.error()).toBe("Existing actionable error");
+  });
+  it("keeps the newest result when refresh requests finish out of order", async () => {
+    const repo = repository();
+    const store = new WorkspaceStore(repo);
+    await store.load("u1");
+    const pending: Array<(items: Item[]) => void> = [];
+    repo.items = () => new Promise((resolve) => pending.push(resolve));
+    const old = store.refreshItems();
+    const newer = store.refreshItems();
+    pending[1]([{ ...idea, title: "Newer external change" }]);
+    await newer;
+    pending[0]([idea]);
+    await old;
+    expect(store.items()[0].title).toBe("Newer external change");
+  });
+  it("refreshes externally edited items without discarding persisted state on failure", async () => {
+    const repo = repository();
+    const store = new WorkspaceStore(repo);
+    await store.load("u1");
+    await store.saveItem(idea);
+    repo.items = async () => [{ ...idea, title: "Changed by Codex" }];
+    await store.refreshItems();
+    expect(store.items()[0].title).toBe("Changed by Codex");
+    repo.items = async () => {
+      throw new Error("Offline");
+    };
+    await store.refreshItems();
+    expect(store.items()[0].title).toBe("Changed by Codex");
+    expect(store.error()).toBe("Offline");
+  });
+  it("does not let a late refresh overwrite a newer item mutation", async () => {
+    const repo = repository();
+    const store = new WorkspaceStore(repo);
+    await store.load("u1");
+    await store.saveItem(idea);
+    let resolve!: (items: Item[]) => void;
+    repo.items = () => new Promise((r) => (resolve = r));
+    const refresh = store.refreshItems();
+    await store.saveItem({ ...idea, title: "Newer change" }, idea.id);
+    resolve([idea]);
+    await refresh;
+    expect(store.items()[0].title).toBe("Newer change");
+  });
   it("creates a project, adds an idea, edits it, changes status and archives it", async () => {
     const store = new WorkspaceStore(repository());
     await store.load("u1");
